@@ -9,13 +9,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { CivicAuthProvider } from "@civic/auth-web3/react";
 import { embeddedWallet } from "@civic/auth-web3/wagmi";
-import { base } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 
-// Create Wagmi config with Civic embedded wallet
+// Create Wagmi config with Civic embedded wallet for Sepolia testnet
 const wagmiConfig = createConfig({
-  chains: [base],
+  chains: [sepolia],
   transports: {
-    [base.id]: http(),
+    [sepolia.id]: http(),
   },
   connectors: [
     embeddedWallet(),
@@ -31,7 +31,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <WagmiProvider config={wagmiConfig}>
         <CivicAuthProvider 
           clientId="c109402a-f214-4c1e-8ecb-4d0b95a424d0" // Get this from auth.civic.com
-          initialChain={base}
+          initialChain={sepolia}
         >
           <WalletContextProvider>
             <CounterContextProvider>

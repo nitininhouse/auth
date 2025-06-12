@@ -24,7 +24,7 @@ interface MyOrganizationDetail {
   reputationScore: string;
 }
 
-const contractAddress = '0x431Fb2E732D863934d49ae1e2799E802a9a18e2b';
+const contractAddress = '0x057cc58159F13833844b7651F8070341FCDba322';
 
 const abi = [
   {
