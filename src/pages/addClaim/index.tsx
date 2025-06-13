@@ -4,9 +4,9 @@ import { parseAbi } from 'viem';
 
 const CONTRACT_ADDRESS = "0x057cc58159F13833844b7651F8070341FCDba322" as const;
 
-// Contract ABI
+// Contract ABI - Updated to match your contract
 const CONTRACT_ABI = parseAbi([
-  'function createClaim(uint256 tokens, uint256 votingEndTimestamp, string description, int256 latitude, int256 longitude, string[] ipfsHashes)'
+  'function createClaim(uint256 _demandedCarbonCredits, uint256 _voting_end_time, string _description, uint256 _latitudes, uint256 _longitudes, string[] _proofIpfsHashCode)'
 ]);
 
 interface FormData {
@@ -20,7 +20,7 @@ interface FormData {
 
 const ClaimForm: React.FC = () => {
   const { address, isConnected } = useAccount();
-  const { writeContract, isPending, error } = useWriteContract();
+  const { writeContract, isPending, error, isSuccess, data } = useWriteContract();
 
   const [formData, setFormData] = useState<FormData>({
     latitude: '',
@@ -33,10 +33,116 @@ const ClaimForm: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [mockIpfsHashes, setMockIpfsHashes] = useState<string[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [submitError, setSubmitError] = useState<string>('');
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Handle success state
+  useEffect(() => {
+    if (isSuccess && data) {
+      setSubmitStatus('success');
+      // Reset form on successful submission
+      setFormData({
+        latitude: '',
+        longitude: '',
+        votingEndTime: '',
+        tokensRequested: '',
+        description: '',
+        media: []
+      });
+      setMockIpfsHashes([]);
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setSubmitStatus('idle');
+      }, 5000);
+    }
+  }, [isSuccess, data]);
+
+  // Handle error state
+  useEffect(() => {
+    if (error) {
+      setSubmitStatus('error');
+      setSubmitError(getErrorMessage(error));
+    }
+  }, [error]);
+
+  const getErrorMessage = (err: any): string => {
+    if (!err) return "Unknown error occurred";
+    
+    // Handle string errors
+    if (typeof err === 'string') {
+      if (err.includes('execution reverted')) {
+        return "Transaction failed: Contract execution reverted. Please check your wallet balance and try again.";
+      }
+      return err;
+    }
+    
+    // Handle object errors safely - avoid using 'in' operator
+    if (typeof err === 'object' && err !== null) {
+      // Safe property access without 'in' operator
+      const message = err.message;
+      const reason = err.reason;
+      const shortMessage = err.shortMessage;
+      const details = err.details;
+      const cause = err.cause;
+      
+      // Check for common error properties
+      if (message && typeof message === 'string') {
+        if (message.includes('execution reverted')) {
+          return "Transaction failed: Contract execution reverted. Please check your wallet balance and try again.";
+        }
+        return message;
+      }
+      if (reason && typeof reason === 'string') {
+        if (reason.includes('execution reverted')) {
+          return "Transaction failed: Contract execution reverted. Please check your wallet balance and try again.";
+        }
+        return reason;
+      }
+      if (shortMessage && typeof shortMessage === 'string') {
+        if (shortMessage.includes('execution reverted')) {
+          return "Transaction failed: Contract execution reverted. Please check your wallet balance and try again.";
+        }
+        return shortMessage;
+      }
+      if (details && typeof details === 'string') {
+        return details;
+      }
+      
+      // Handle nested error objects
+      if (cause && typeof cause === 'object' && cause !== null) {
+        return getErrorMessage(cause);
+      }
+      
+      // Handle toString method
+      if (typeof err.toString === 'function') {
+        try {
+          const errorString = err.toString();
+          if (errorString.includes('execution reverted')) {
+            return "Transaction failed: Contract execution reverted. Please check your wallet balance and try again.";
+          }
+          return errorString;
+        } catch {
+          return "Error converting error message";
+        }
+      }
+    }
+    
+    // Fallback to string conversion
+    try {
+      const errorString = String(err);
+      if (errorString.includes('execution reverted')) {
+        return "Transaction failed: Contract execution reverted. Please check your wallet balance and try again.";
+      }
+      return errorString;
+    } catch {
+      return "Unknown error occurred";
+    }
+  };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -87,33 +193,72 @@ const ClaimForm: React.FC = () => {
     setMockIpfsHashes(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const validateForm = (): string | null => {
+    if (!formData.latitude || !formData.longitude) {
+      return "Please provide valid latitude and longitude coordinates.";
+    }
+    
+    if (!formData.tokensRequested || Number(formData.tokensRequested) <= 0) {
+      return "Please specify a valid number of tokens requested.";
+    }
+    
+    if (!formData.votingEndTime) {
+      return "Please select a voting end time.";
+    }
+    
+    const votingEndDate = new Date(formData.votingEndTime);
+    if (votingEndDate <= new Date()) {
+      return "Voting end time must be in the future.";
+    }
+    
+    if (!formData.description.trim()) {
+      return "Please provide a description for your claim.";
+    }
+    
+    if (formData.media.length === 0) {
+      return "Please upload at least one proof media file.";
+    }
+    
+    return null;
+  };
+
+  const handleSubmit = async (e?: any) => {
+    if (e) e.preventDefault();
+    
+    // Reset states
+    setSubmitStatus('idle');
+    setSubmitError('');
 
     if (!isConnected || !address) {
-      alert("Please connect your wallet.");
+      setSubmitStatus('error');
+      setSubmitError("Please connect your wallet.");
       return;
     }
 
-    if (formData.media.length === 0) {
-      alert("Please upload at least one proof media file.");
+    // Validate form
+    const validationError = validateForm();
+    if (validationError) {
+      setSubmitStatus('error');
+      setSubmitError(validationError);
       return;
     }
+
+    setSubmitStatus('submitting');
 
     try {
-      // Convert form data to contract parameters
-      const tokens = BigInt(formData.tokensRequested) * BigInt(10**18); // Convert to wei
-      const votingEndTimestamp = BigInt(Math.floor(new Date(formData.votingEndTime).getTime() / 1000));
-      const latitude = BigInt(Math.floor(Number(formData.latitude) * 1e6)); // Convert to micro-degrees
-      const longitude = BigInt(Math.floor(Number(formData.longitude) * 1e6)); // Convert to micro-degrees
+      // Convert form data to contract parameters to match your contract
+      const demandedCarbonCredits = BigInt(formData.tokensRequested) * BigInt(10**18); // Convert to wei
+      const voting_end_time = BigInt(Math.floor(new Date(formData.votingEndTime).getTime() / 1000));
+      const latitudes = BigInt(Math.floor(Number(formData.latitude) * 1e6)); // Convert to micro-degrees  
+      const longitudes = BigInt(Math.floor(Number(formData.longitude) * 1e6)); // Convert to micro-degrees
 
       console.log("Submitting claim with parameters:", {
-        tokens: tokens.toString(),
-        votingEndTimestamp: votingEndTimestamp.toString(),
+        demandedCarbonCredits: demandedCarbonCredits.toString(),
+        voting_end_time: voting_end_time.toString(),
         description: formData.description,
-        latitude: latitude.toString(),
-        longitude: longitude.toString(),
-        ipfsHashes: mockIpfsHashes
+        latitudes: latitudes.toString(),
+        longitudes: longitudes.toString(),
+        proofIpfsHashCode: mockIpfsHashes
       });
 
       await writeContract({
@@ -121,56 +266,19 @@ const ClaimForm: React.FC = () => {
         abi: CONTRACT_ABI,
         functionName: 'createClaim',
         args: [
-          tokens,
-          votingEndTimestamp,
+          demandedCarbonCredits,
+          voting_end_time,
           formData.description,
-          latitude,
-          longitude,
+          latitudes,
+          longitudes,
           mockIpfsHashes
         ],
       });
 
-      alert("Claim created successfully!");
-
-      // Reset form
-      setFormData({
-        latitude: '',
-        longitude: '',
-        votingEndTime: '',
-        tokensRequested: '',
-        description: '',
-        media: []
-      });
-      setMockIpfsHashes([]);
     } catch (err) {
       console.error("Transaction Error:", err);
-      
-      // Ultra-safe error handling
-      let errorMessage = "Transaction failed";
-      
-      if (err) {
-        if (typeof err === 'string') {
-          errorMessage = err;
-        } else {
-          // Use Object.prototype.hasOwnProperty for safe property checking
-          if (Object.prototype.hasOwnProperty.call(err, 'message') && err.message) {
-            errorMessage = String(err.message);
-          } else if (Object.prototype.hasOwnProperty.call(err, 'reason') && err.reason) {
-            errorMessage = String(err.reason);
-          } else if (Object.prototype.hasOwnProperty.call(err, 'shortMessage') && err.shortMessage) {
-            errorMessage = String(err.shortMessage);
-          } else {
-            // Last resort - convert to string safely
-            try {
-              errorMessage = String(err);
-            } catch {
-              errorMessage = "Transaction failed - Unknown error";
-            }
-          }
-        }
-      }
-      
-      alert(`Error: ${errorMessage}`);
+      setSubmitStatus('error');
+      setSubmitError(getErrorMessage(err));
     }
   };
 
@@ -209,7 +317,34 @@ const ClaimForm: React.FC = () => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Status Messages */}
+        {submitStatus === 'success' && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <p className="text-green-700 font-medium">Claim created successfully!</p>
+            </div>
+            <p className="text-green-600 text-sm mt-1">Transaction hash: {data}</p>
+          </div>
+        )}
+
+        {submitStatus === 'error' && submitError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-red-700 font-medium">Error occurred:</p>
+                <p className="text-red-600 text-sm mt-1">{submitError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-4">
           {/* File Upload Section */}
           <div>
             <label className="block mb-2 font-semibold text-gray-700">Proof Media Upload</label>
@@ -338,26 +473,30 @@ const ClaimForm: React.FC = () => {
             />
           </div>
 
-          {/* Error Display */}
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded">
-              <p className="text-red-700">Error: {error.message}</p>
-            </div>
-          )}
-
           {/* Submit Button */}
           <button 
-            type="submit"
-            disabled={isPending || formData.media.length === 0}
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitStatus === 'submitting' || isPending}
             className={`w-full py-3 rounded font-semibold text-white transition-colors ${
-              isPending || formData.media.length === 0
+              submitStatus === 'submitting' || isPending
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : 'bg-green-600 hover:bg-green-700 active:bg-green-800'
             }`}
           >
-            {isPending ? "Creating Claim..." : "Create Claim"}
+            {submitStatus === 'submitting' || isPending ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Creating Claim...
+              </span>
+            ) : (
+              "Create Claim"
+            )}
           </button>
-        </form>
+        </div>
 
         {/* Info Section */}
         <div className="mt-8 p-4 bg-gray-50 rounded">

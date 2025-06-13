@@ -1,7 +1,6 @@
 import { Clock, Check, Loader2, AlertCircle } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { ethers } from 'ethers';
-import CarbonCreditMarketplaceABI from '../../utils/CarbonCreditMarketplace.json';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 
 interface LendRequest {
   id: number;
@@ -30,120 +29,263 @@ interface DisplayRequest {
   canRespond: boolean;
 }
 
+const contractAddress = '0x431Fb2E732D863934d49ae1e2799E802a9a18e2b' as `0x${string}`;
+
+const contractABI = [
+  {
+    "type": "function",
+    "name": "getUserLendRequestsLenderPOV",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct LendRequest[]",
+        "components": [
+          {
+            "name": "id",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "borrowerAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "lenderAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "carbonCredits",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "response",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "interestRate",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "timeOfissue",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "eligibilityScore",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "proofData",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "status",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "recommendation",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "respondToLendRequest",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "response",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+] as const;
+
 export default function CreditRequests() {
   const [incomingRequests, setIncomingRequests] = useState<DisplayRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentAccount, setCurrentAccount] = useState('');
   const [error, setError] = useState('');
   const [isResponding, setIsResponding] = useState<Record<string, boolean>>({});
   const [txStatus, setTxStatus] = useState<Record<string, 'success' | 'error' | ''>>({});
+  const [respondingRequestId, setRespondingRequestId] = useState<number | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
-  // Contract configuration
-  const contractAddress = '0x431Fb2E732D863934d49ae1e2799E802a9a18e2b';
-  const contractABI = CarbonCreditMarketplaceABI.abi;
+  const { address, isConnected } = useAccount();
+  const { writeContract, data: hash, isPending } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
 
-  // Connect to wallet
-  const connectWallet = async () => {
-    try {
-      if (!window.ethereum) {
-        setError('Please install MetaMask!');
-        return;
-      }
+  // Read contract data
+  const { data: lendRequestsData, isError: isReadError, isLoading: isReadLoading, refetch } = useReadContract({
+    address: contractAddress,
+    abi: contractABI,
+    functionName: 'getUserLendRequestsLenderPOV',
+    account: address,
+  });
 
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      setCurrentAccount(accounts[0]);
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-      setError('Failed to connect wallet. Please try again.');
+  // Fix hydration issues
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Process contract data
+  useEffect(() => {
+    if (!isClient) return;
+
+    if (!isConnected) {
+      setError("Please connect your wallet");
+      setIsLoading(false);
+      return;
     }
-  };
 
-  // Fetch requests from blockchain
-  const fetchRequests = async () => {
-    if (!currentAccount) return;
-
-    try {
+    if (isReadLoading) {
       setIsLoading(true);
       setError('');
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, CarbonCreditMarketplaceABI.abi, signer);
-
-      // Fetch requests where current user is the lender
-      const lenderRequests: LendRequest[] = await contract.getUserLendRequestsLenderPOV();
-      
-      // Format requests for display
-      const formattedRequests = lenderRequests.map(req => {
-        return {
-          id: `#${req.id.toString().padStart(8, '0')}`,
-          requestId: req.id,
-          borrowerAddress: req.borrowerAddress,
-          creditsRequested: req.carbonCredits,
-          zkProofStatus: req.proofData ? 'Verified' as 'Verified' : 'Pending Verification' as 'Pending Verification',
-          eligibilityScore: req.eligibilityScore,
-          requestDate: new Date(req.timeOfissue * 1000).toLocaleDateString(),
-          interestRate: 5,
-          status: req.response === 0 ? 'Pending' as 'Pending' : 
-                 req.response === 1 ? 'Approved' as 'Approved' : 'Declined' as 'Declined',
-          canRespond: req.response === 0 && 
-                     req.lenderAddress.toLowerCase() === currentAccount.toLowerCase()
-        };
-      });
-
-      setIncomingRequests(formattedRequests);
-    } catch (error) {
-      console.error('Error fetching requests:', error);
-      setError('Failed to load requests. Please try again.');
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  };
+
+    if (isReadError) {
+      setError('Failed to load requests. Please try again.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (lendRequestsData) {
+      try {
+        // Format requests for display
+        const formattedRequests = lendRequestsData.map((req: any) => {
+          return {
+            id: `#${req.id.toString().padStart(8, '0')}`,
+            requestId: Number(req.id),
+            borrowerAddress: String(req.borrowerAddress),
+            creditsRequested: Number(req.carbonCredits),
+            zkProofStatus: req.proofData ? 'Verified' as const : 'Pending Verification' as const,
+            eligibilityScore: Number(req.eligibilityScore),
+            requestDate: new Date(Number(req.timeOfissue) * 1000).toLocaleDateString(),
+            interestRate: 5, // You might want to get this from the contract
+            status: Number(req.response) === 0 ? 'Pending' as const : 
+                   Number(req.response) === 1 ? 'Approved' as const : 'Declined' as const,
+            canRespond: Number(req.response) === 0 && 
+                       String(req.lenderAddress).toLowerCase() === address?.toLowerCase()
+          };
+        });
+
+        setIncomingRequests(formattedRequests);
+        setError('');
+      } catch (err) {
+        console.error('Error processing requests:', err);
+        setError('Failed to process requests data.');
+      }
+    } else {
+      setIncomingRequests([]);
+    }
+
+    setIsLoading(false);
+  }, [isClient, isConnected, lendRequestsData, isReadLoading, isReadError, address]);
 
   // Handle request response (approve/decline)
   const handleRequestResponse = async (requestId: number, approve: boolean) => {
+    if (!isConnected) {
+      setError("Please connect your wallet");
+      return;
+    }
+
     try {
       setIsResponding(prev => ({ ...prev, [requestId.toString()]: true }));
       setTxStatus(prev => ({ ...prev, [requestId.toString()]: '' }));
       setError('');
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, CarbonCreditMarketplaceABI.abi, signer);
+      setRespondingRequestId(requestId);
 
       // Call contract method to respond to request (1 = approve, 2 = decline)
       const responseValue = approve ? 1 : 2;
-      const tx = await contract.respondToLendRequest(
-        requestId,
-        responseValue,
-        { gasLimit: 500000 }
-      );
+      
+      writeContract({
+        address: contractAddress,
+        abi: contractABI,
+        functionName: 'respondToLendRequest',
+        args: [BigInt(requestId), BigInt(responseValue)],
+      });
 
-      await tx.wait();
-      setTxStatus(prev => ({ ...prev, [requestId.toString()]: 'success' }));
-      fetchRequests(); // Refresh the list after successful response
     } catch (error) {
       console.error('Error responding to request:', error);
       setTxStatus(prev => ({ ...prev, [requestId.toString()]: 'error' }));
       setError('Transaction failed. Please try again.');
-    } finally {
       setIsResponding(prev => ({ ...prev, [requestId.toString()]: false }));
+      setRespondingRequestId(null);
     }
   };
 
-  // Initialize
+  // Handle transaction confirmation
   useEffect(() => {
-    connectWallet();
-  }, []);
-
-  // Fetch requests when account changes
-  useEffect(() => {
-    if (currentAccount) {
-      fetchRequests();
+    if (isConfirmed && respondingRequestId) {
+      setTxStatus(prev => ({ ...prev, [respondingRequestId.toString()]: 'success' }));
+      setIsResponding(prev => ({ ...prev, [respondingRequestId.toString()]: false }));
+      setRespondingRequestId(null);
+      
+      // Refetch data to update the UI
+      refetch();
     }
-  }, [currentAccount]);
+  }, [isConfirmed, respondingRequestId, refetch]);
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (!isPending && !isConfirming && respondingRequestId && !isConfirmed) {
+      // Transaction might have failed
+      setTimeout(() => {
+        setIsResponding(prev => ({ ...prev, [respondingRequestId.toString()]: false }));
+        setRespondingRequestId(null);
+      }, 1000);
+    }
+  }, [isPending, isConfirming, isConfirmed, respondingRequestId]);
 
   const currentDate = new Date();
   const formattedDate = `Today, ${currentDate.getHours()}:${currentDate.getMinutes() < 10 ? '0' + currentDate.getMinutes() : currentDate.getMinutes()}`;
+
+  // Don't render anything until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-48"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isConnected) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="text-center py-20">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Connect Your Wallet</h2>
+          <p className="text-gray-600">Please connect your wallet to view credit requests.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -197,19 +339,22 @@ export default function CreditRequests() {
                     <>
                       <button
                         onClick={() => handleRequestResponse(request.requestId, true)}
-                        disabled={isResponding[request.requestId.toString()]}
-                        className={`bg-emerald-500 text-white px-4 py-2 rounded-md hover:bg-emerald-600 transition flex items-center ${isResponding[request.requestId.toString()] ? 'opacity-50' : ''}`}
+                        disabled={isResponding[request.requestId.toString()] || isPending || isConfirming}
+                        className={`bg-emerald-500 text-white px-4 py-2 rounded-md hover:bg-emerald-600 transition flex items-center ${
+                          isResponding[request.requestId.toString()] || isPending || isConfirming ? 'opacity-50' : ''
+                        }`}
                       >
-                        {isResponding[request.requestId.toString()] ? (
+                        {(isResponding[request.requestId.toString()] || isPending || isConfirming) && respondingRequestId === request.requestId ? (
                           <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                        ) : (
-                          'Approve'
-                        )}
+                        ) : null}
+                        Approve
                       </button>
                       <button
                         onClick={() => handleRequestResponse(request.requestId, false)}
-                        disabled={isResponding[request.requestId.toString()]}
-                        className={`border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition flex items-center ${isResponding[request.requestId.toString()] ? 'opacity-50' : ''}`}
+                        disabled={isResponding[request.requestId.toString()] || isPending || isConfirming}
+                        className={`border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition flex items-center ${
+                          isResponding[request.requestId.toString()] || isPending || isConfirming ? 'opacity-50' : ''
+                        }`}
                       >
                         Decline
                       </button>
@@ -263,6 +408,12 @@ export default function CreditRequests() {
                   Transaction failed. Please try again.
                 </div>
               )}
+              {(isPending || isConfirming) && respondingRequestId === request.requestId && (
+                <div className="mt-4 bg-blue-50 text-blue-700 p-2 rounded text-sm flex items-center">
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  {isPending ? 'Confirming transaction...' : 'Waiting for confirmation...'}
+                </div>
+              )}
             </div>
           ))
         ) : (
@@ -274,12 +425,3 @@ export default function CreditRequests() {
     </div>
   );
 }
-
-// Verifier contract:
-// 0x42C1657F1d0B214dBfb20E7F69eC05f35E4d57f6
-
-// CarbonCredit token:
-// 0x1d4A8249E8f1E4B0DAD7a0896B74135517CD1F0e
-
-// Marketplace:
-// 0xd20241Ab97C41363cD11384DBaC3760d7052b340
