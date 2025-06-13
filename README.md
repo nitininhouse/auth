@@ -1,6 +1,8 @@
 # ZK Civic Carbon: Decentralized Carbon Credit Marketplace
 ## Powered by Civic Auth & Zero-Knowledge Proofs
 
+**website deployed at :- https://auth-nine-murex.vercel.app/organisations** 
+
 ![ZK-Carbon Banner](https://img.shields.io/badge/ZK--Carbon-Live%20on%20Sepolia-green?style=for-the-badge&logo=ethereum)
 ![Civic Auth](https://img.shields.io/badge/Civic-Auth%20Integrated-blue?style=for-the-badge)
 ![Zero Knowledge](https://img.shields.io/badge/ZK--Proofs-Privacy%20First-purple?style=for-the-badge)
