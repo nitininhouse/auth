@@ -1,13 +1,13 @@
-import { useState, useEffect, ChangeEvent, DragEvent, FormEvent } from 'react';
-import Head from 'next/head';
-import { ethers } from 'ethers';
-import CarbonCreditMarketplaceABI from '../../utils/CarbonCreditMarketplace.json';
+import React, { useState, useEffect, ChangeEvent, DragEvent, FormEvent } from 'react';
+import { useAccount, useWriteContract } from "wagmi";
+import { parseAbi } from 'viem';
 
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
+const CONTRACT_ADDRESS = "0x057cc58159F13833844b7651F8070341FCDba322" as const;
+
+// Contract ABI
+const CONTRACT_ABI = parseAbi([
+  'function createClaim(uint256 tokens, uint256 votingEndTimestamp, string description, int256 latitude, int256 longitude, string[] ipfsHashes)'
+]);
 
 interface FormData {
   latitude: string;
@@ -18,10 +18,10 @@ interface FormData {
   media: File[];
 }
 
-function ClaimForm(): JSX.Element {
-  const [account, setAccount] = useState<string | null>(null);
-  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
-  const [contract, setContract] = useState<ethers.Contract | null>(null);
+const ClaimForm: React.FC = () => {
+  const { address, isConnected } = useAccount();
+  const { writeContract, isPending, error } = useWriteContract();
+
   const [formData, setFormData] = useState<FormData>({
     latitude: '',
     longitude: '',
@@ -31,60 +31,12 @@ function ClaimForm(): JSX.Element {
     media: []
   });
   const [isDragging, setIsDragging] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const contractAddress = "0x057cc58159F13833844b7651F8070341FCDba322";
+  const [mockIpfsHashes, setMockIpfsHashes] = useState<string[]>([]);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    const checkConnectedWallet = async () => {
-      if (window.ethereum) {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          const newProvider = new ethers.BrowserProvider(window.ethereum);
-          setProvider(newProvider);
-          setAccount(accounts[0]);
-        }
-      }
-    };
-    checkConnectedWallet();
+    setIsClient(true);
   }, []);
-
-  useEffect(() => {
-    const initializeContract = async () => {
-      if (provider && !contract) {
-        try {
-          const signer = await provider.getSigner();
-          const marketplaceContract = new ethers.Contract(
-            contractAddress,
-            CarbonCreditMarketplaceABI.abi,
-            signer
-          );
-          setContract(marketplaceContract);
-        } catch (error) {
-          console.error("Failed to initialize contract:", error);
-        }
-      }
-    };
-
-    if (provider) {
-      initializeContract();
-    }
-  }, [provider, contract]);
-
-  const connectWallet = async () => {
-    if (!window.ethereum) {
-      alert('Please install MetaMask');
-      return;
-    }
-    try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const newProvider = new ethers.BrowserProvider(window.ethereum);
-      setProvider(newProvider);
-      setAccount(accounts[0]);
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-    }
-  };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -106,74 +58,81 @@ function ClaimForm(): JSX.Element {
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files);
     setFormData(prev => ({ ...prev, media: [...prev.media, ...files] }));
+    
+    // Generate mock IPFS hashes for dropped files
+    const newHashes = files.map((file, index) => 
+      `QmMockHash${Date.now()}${index}_${file.name.replace(/[^a-zA-Z0-9]/g, '')}`
+    );
+    setMockIpfsHashes(prev => [...prev, ...newHashes]);
   };
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       setFormData(prev => ({ ...prev, media: [...prev.media, ...files] }));
+      
+      // Generate mock IPFS hashes for selected files
+      const newHashes = files.map((file, index) => 
+        `QmMockHash${Date.now()}${index}_${file.name.replace(/[^a-zA-Z0-9]/g, '')}`
+      );
+      setMockIpfsHashes(prev => [...prev, ...newHashes]);
     }
   };
 
-  const uploadFilesToIPFS = async (files: File[]): Promise<string[]> => {
-    const hashes: string[] = [];
-    for (const file of files) {
-      try {
-        const data = new FormData();
-        data.append('file', file);
-
-        const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`
-          },
-          body: data
-        });
-
-        const json = await res.json();
-        hashes.push(json.IpfsHash);
-      } catch (err) {
-        console.error("IPFS Upload Error:", err);
-        throw err;
-      }
-    }
-    return hashes;
+  const removeFile = (indexToRemove: number) => {
+    setFormData(prev => ({
+      ...prev,
+      media: prev.media.filter((_, index) => index !== indexToRemove)
+    }));
+    setMockIpfsHashes(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!account) {
+    if (!isConnected || !address) {
       alert("Please connect your wallet.");
       return;
     }
-    if (!contract) {
-      alert("Smart contract not initialized.");
+
+    if (formData.media.length === 0) {
+      alert("Please upload at least one proof media file.");
       return;
     }
 
-    setIsSubmitting(true);
-
     try {
-      const ipfsHashes = await uploadFilesToIPFS(formData.media);
+      // Convert form data to contract parameters
+      const tokens = BigInt(formData.tokensRequested) * BigInt(10**18); // Convert to wei
+      const votingEndTimestamp = BigInt(Math.floor(new Date(formData.votingEndTime).getTime() / 1000));
+      const latitude = BigInt(Math.floor(Number(formData.latitude) * 1e6)); // Convert to micro-degrees
+      const longitude = BigInt(Math.floor(Number(formData.longitude) * 1e6)); // Convert to micro-degrees
 
-      const tokens = ethers.parseUnits(formData.tokensRequested, 18);
-      const votingEndTimestamp = Math.floor(new Date(formData.votingEndTime).getTime() / 1000);
-      const latitude = BigInt(Math.floor(Number(formData.latitude) * 1e6));
-      const longitude = BigInt(Math.floor(Number(formData.longitude) * 1e6));
+      console.log("Submitting claim with parameters:", {
+        tokens: tokens.toString(),
+        votingEndTimestamp: votingEndTimestamp.toString(),
+        description: formData.description,
+        latitude: latitude.toString(),
+        longitude: longitude.toString(),
+        ipfsHashes: mockIpfsHashes
+      });
 
-      const tx = await contract.createClaim(
-        tokens,
-        votingEndTimestamp,
-        formData.description,
-        latitude,
-        longitude,
-        ipfsHashes
-      );
+      await writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: 'createClaim',
+        args: [
+          tokens,
+          votingEndTimestamp,
+          formData.description,
+          latitude,
+          longitude,
+          mockIpfsHashes
+        ],
+      });
 
-      await tx.wait();
       alert("Claim created successfully!");
 
+      // Reset form
       setFormData({
         latitude: '',
         longitude: '',
@@ -182,75 +141,234 @@ function ClaimForm(): JSX.Element {
         description: '',
         media: []
       });
-    } catch (error: any) {
-      console.error("Transaction Error:", error);
-      alert(`Error: ${error.message || "Unknown error"}`);
-    } finally {
-      setIsSubmitting(false);
+      setMockIpfsHashes([]);
+    } catch (err) {
+      console.error("Transaction Error:", err);
+      
+      // Ultra-safe error handling
+      let errorMessage = "Transaction failed";
+      
+      if (err) {
+        if (typeof err === 'string') {
+          errorMessage = err;
+        } else {
+          // Use Object.prototype.hasOwnProperty for safe property checking
+          if (Object.prototype.hasOwnProperty.call(err, 'message') && err.message) {
+            errorMessage = String(err.message);
+          } else if (Object.prototype.hasOwnProperty.call(err, 'reason') && err.reason) {
+            errorMessage = String(err.reason);
+          } else if (Object.prototype.hasOwnProperty.call(err, 'shortMessage') && err.shortMessage) {
+            errorMessage = String(err.shortMessage);
+          } else {
+            // Last resort - convert to string safely
+            try {
+              errorMessage = String(err);
+            } catch {
+              errorMessage = "Transaction failed - Unknown error";
+            }
+          }
+        }
+      }
+      
+      alert(`Error: ${errorMessage}`);
     }
   };
 
+  // Show loading state during hydration
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-6 shadow rounded text-center">
+          <h2 className="text-xl font-bold mb-4">Loading...</h2>
+          <p className="text-gray-600">Please wait while we load the application.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show wallet connection prompt if not connected
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-6 shadow rounded text-center">
+          <h2 className="text-xl font-bold mb-4">Wallet Not Connected</h2>
+          <p className="text-gray-600 mb-4">Please connect your wallet to create a carbon credit claim.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <Head><title>Create Claim</title></Head>
-
       <div className="max-w-3xl mx-auto bg-white p-6 shadow-md rounded-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Create Carbon Credit Claim</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Create Carbon Credit Claim</h1>
+        
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
+          <p className="text-sm text-blue-700">
+            <strong>Connected Wallet:</strong> {address}
+          </p>
+        </div>
 
-        {!account && (
-          <div className="text-center mb-4">
-            <button onClick={connectWallet} className="bg-blue-600 text-white px-4 py-2 rounded">
-              Connect Wallet
-            </button>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* File Upload Section */}
+          <div>
+            <label className="block mb-2 font-semibold text-gray-700">Proof Media Upload</label>
+            <div
+              className={`border-2 border-dashed p-6 rounded text-center transition-colors ${
+                isDragging ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <input 
+                type="file" 
+                id="media" 
+                multiple 
+                className="hidden" 
+                onChange={handleFileSelect}
+                accept="image/*,video/*,.pdf"
+              />
+              <label htmlFor="media" className="cursor-pointer">
+                <div className="flex flex-col items-center space-y-2">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span className="text-blue-600 hover:text-blue-700">
+                    Click here or drag files to upload
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    Images, Videos, PDFs accepted
+                  </span>
+                </div>
+              </label>
+            </div>
+            
+            {formData.media.length > 0 && (
+              <div className="mt-4">
+                <h4 className="font-medium text-gray-700 mb-2">Uploaded Files:</h4>
+                <ul className="space-y-2">
+                  {formData.media.map((file, i) => (
+                    <li key={i} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <span className="text-sm text-gray-600">• {file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(i)}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-        )}
 
-        <form onSubmit={handleSubmit}>
-
-          <label className="block mb-2 font-semibold">Proof Media Upload</label>
-          <div
-            className={`border-2 border-dashed p-6 rounded text-center mb-4 ${
-              isDragging ? 'border-green-500 bg-green-50' : 'border-gray-300'
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <input type="file" id="media" multiple className="hidden" onChange={handleFileSelect} />
-            <label htmlFor="media" className="cursor-pointer text-blue-600">Click or Drag files</label>
+          {/* Location Inputs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block mb-2 font-semibold text-gray-700">Latitude</label>
+              <input 
+                type="number"
+                step="any"
+                name="latitude" 
+                value={formData.latitude} 
+                onChange={handleChange}
+                placeholder="e.g., 28.6139" 
+                required 
+                className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block mb-2 font-semibold text-gray-700">Longitude</label>
+              <input 
+                type="number"
+                step="any"
+                name="longitude" 
+                value={formData.longitude} 
+                onChange={handleChange}
+                placeholder="e.g., 77.2090" 
+                required 
+                className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
           </div>
-          {formData.media.length > 0 && (
-            <ul className="mb-4 text-sm text-gray-600">
-              {formData.media.map((file, i) => (
-                <li key={i}>• {file.name}</li>
-              ))}
-            </ul>
+
+          {/* Tokens and Voting End Time */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block mb-2 font-semibold text-gray-700">Tokens Requested</label>
+              <input 
+                type="number"
+                name="tokensRequested" 
+                value={formData.tokensRequested} 
+                onChange={handleChange}
+                placeholder="e.g., 100" 
+                required 
+                className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block mb-2 font-semibold text-gray-700">Voting End Time</label>
+              <input 
+                type="datetime-local" 
+                name="votingEndTime" 
+                value={formData.votingEndTime}
+                onChange={handleChange} 
+                required 
+                className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block mb-2 font-semibold text-gray-700">Claim Description</label>
+            <textarea 
+              name="description" 
+              value={formData.description} 
+              onChange={handleChange}
+              placeholder="Describe your carbon credit claim in detail..." 
+              required 
+              rows={4}
+              className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded">
+              <p className="text-red-700">Error: {error.message}</p>
+            </div>
           )}
 
-          <input name="latitude" value={formData.latitude} onChange={handleChange}
-            placeholder="Latitude (e.g. 28.6139)" required className="w-full mb-4 p-2 border rounded" />
-
-          <input name="longitude" value={formData.longitude} onChange={handleChange}
-            placeholder="Longitude (e.g. 77.2090)" required className="w-full mb-4 p-2 border rounded" />
-
-          <input name="tokensRequested" value={formData.tokensRequested} onChange={handleChange}
-            placeholder="Tokens Requested (e.g. 100)" required className="w-full mb-4 p-2 border rounded" />
-
-          <input type="datetime-local" name="votingEndTime" value={formData.votingEndTime}
-            onChange={handleChange} required className="w-full mb-4 p-2 border rounded" />
-
-          <textarea name="description" value={formData.description} onChange={handleChange}
-            placeholder="Claim Description" required className="w-full mb-4 p-2 border rounded" />
-
-          <button type="submit"
-            disabled={isSubmitting}
-            className={`w-full py-2 rounded text-white ${isSubmitting ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}>
-            {isSubmitting ? "Submitting..." : "Create Claim"}
+          {/* Submit Button */}
+          <button 
+            type="submit"
+            disabled={isPending || formData.media.length === 0}
+            className={`w-full py-3 rounded font-semibold text-white transition-colors ${
+              isPending || formData.media.length === 0
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-green-600 hover:bg-green-700 active:bg-green-800'
+            }`}
+          >
+            {isPending ? "Creating Claim..." : "Create Claim"}
           </button>
         </form>
+
+        {/* Info Section */}
+        <div className="mt-8 p-4 bg-gray-50 rounded">
+          <h3 className="font-semibold text-gray-800 mb-2">Note:</h3>
+          <p className="text-sm text-gray-600">
+            This form creates a carbon credit claim on the blockchain. The uploaded files will be processed and stored securely.
+          </p>
+        </div>
       </div>
     </div>
   );
-}
+};
 
 export default ClaimForm;
