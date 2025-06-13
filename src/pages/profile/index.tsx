@@ -275,127 +275,297 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {isRegistered ? (
-        <>
-          <div className="bg-white p-6 shadow rounded mb-6">
-            <h2 className="text-xl font-bold mb-4">Organization Profile</h2>
-            <div className="flex items-center space-x-4 mb-4">
-              {organization.profilePhoto && organization.profilePhoto !== "default_hash" ? (
-                <img
-                  src={`https://ipfs.io/ipfs/${organization.profilePhoto}`}
-                  alt="Profile"
-                  className="w-16 h-16 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
-                  <Users className="w-6 h-6 text-white" />
+    <section className="relative min-h-screen flex items-center justify-center px-6 md:px-12">
+      {/* Background Effects */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-900" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-green-900/20 via-transparent to-transparent" />
+      
+      {/* Animated Grid Background */}
+      <div className="absolute inset-0 opacity-10">
+        <div 
+          className="absolute inset-0" 
+          style={{
+            backgroundImage: `linear-gradient(rgba(34, 197, 94, 0.1) 1px, transparent 1px),
+                             linear-gradient(90deg, rgba(34, 197, 94, 0.1) 1px, transparent 1px)`,
+            backgroundSize: '50px 50px',
+            animation: 'grid-move 20s linear infinite'
+          }} 
+        />
+      </div>
+  
+      <div className="relative z-10 max-w-7xl mx-auto w-full">
+        {isRegistered ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            {/* Organization Profile Card */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-emerald-600 rounded-3xl blur-3xl opacity-30 group-hover:opacity-50 transition-opacity duration-500" />
+              <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl p-8 border border-green-500/30 hover:border-green-400/50 transition-all duration-500">
+                <div className="overflow-hidden mb-6">
+                  <h2 className="text-3xl md:text-4xl font-black text-white animate-fade-in-up">
+                    Organization
+                    <span className="block bg-gradient-to-r from-green-400 via-emerald-400 to-green-300 bg-clip-text text-transparent">
+                      Profile
+                    </span>
+                  </h2>
                 </div>
-              )}
-              <div>
-                <p className="font-medium">{organization.name}</p>
-                <p className="text-sm text-gray-500">
-                  {organization.walletAddress.slice(0, 6)}...{organization.walletAddress.slice(-4)}
-                </p>
+  
+                <div className="flex items-center space-x-6 mb-8">
+                  <div className="relative group">
+                    {organization.profilePhoto && organization.profilePhoto !== "default_hash" ? (
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full blur-lg opacity-60" />
+                        <img
+                          src={`https://ipfs.io/ipfs/${organization.profilePhoto}`}
+                          alt="Profile"
+                          className="relative w-20 h-20 rounded-full object-cover border-2 border-green-400/50"
+                        />
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full blur-lg opacity-60" />
+                        <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 border-2 border-green-400/50 flex items-center justify-center">
+                          <Users className="w-8 h-8 text-green-400" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-bold text-white">{organization.name}</h3>
+                    <p className="text-green-400 font-mono text-sm bg-green-500/10 px-3 py-1 rounded-full border border-green-500/30">
+                      {organization.walletAddress.slice(0, 6)}...{organization.walletAddress.slice(-4)}
+                    </p>
+                  </div>
+                </div>
+  
+                <div className="space-y-4">
+                  <div className="group">
+                    <label className="block text-green-400 font-semibold mb-2 text-sm uppercase tracking-wider">
+                      Description
+                    </label>
+                    <p className="text-gray-300 leading-relaxed bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
+                      {organization.description}
+                    </p>
+                  </div>
+                  
+                  <div className="group">
+                    <label className="block text-green-400 font-semibold mb-2 text-sm uppercase tracking-wider">
+                      Reputation Score
+                    </label>
+                    <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 p-4 rounded-xl border border-green-500/30">
+                      <span className="text-3xl font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+                        {organization.reputationScore}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <p className="mb-2"><strong>Description:</strong> {organization.description}</p>
-            <p><strong>Reputation Score:</strong> {organization.reputationScore}</p>
+  
+            {/* Emissions Recording Card */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-green-600 rounded-3xl blur-3xl opacity-30 group-hover:opacity-50 transition-opacity duration-500" />
+              <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl p-8 border border-green-500/30 hover:border-green-400/50 transition-all duration-500">
+                <div className="overflow-hidden mb-8">
+                  <h2 className="text-3xl md:text-4xl font-black text-white animate-fade-in-up">
+                    Record
+                    <span className="block bg-gradient-to-r from-green-400 via-emerald-400 to-green-300 bg-clip-text text-transparent">
+                      Emissions
+                    </span>
+                  </h2>
+                </div>
+  
+                <form onSubmit={handleEmissionsSubmit} className="space-y-6">
+                  <div className="group">
+                    <label 
+                      htmlFor="emissions" 
+                      className="block text-green-400 font-semibold mb-3 text-sm uppercase tracking-wider"
+                    >
+                      Emissions Amount
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="emissions"
+                        type="number"
+                        min="1"
+                        step="1"
+                        required
+                        value={emissions}
+                        onChange={(e) => setEmissions(e.target.value)}
+                        className="w-full p-4 bg-gray-800/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 hover:border-green-500/50"
+                        placeholder="Enter emissions amount"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </div>
+                  </div>
+  
+                  <button
+                    type="submit"
+                    disabled={isRecordingEmissions}
+                    className="group relative w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl text-white font-semibold text-lg overflow-hidden hover:from-green-500 hover:to-emerald-500 transition-all duration-300 hover:shadow-2xl hover:shadow-green-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  >
+                    <span className="relative z-10">
+                      {isRecordingEmissions ? "Recording..." : "Record Emissions"}
+                    </span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  </button>
+                </form>
+  
+                {emissionsError && (
+                  <div className="mt-6 p-4 bg-red-900/50 border border-red-500/30 text-red-300 rounded-xl backdrop-blur-sm">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
+                      <span className="font-medium">Error: {emissionsError.message}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-
-          <div className="bg-white p-6 shadow rounded">
-            <h2 className="text-xl font-bold mb-4">Record Emissions</h2>
-            <form onSubmit={handleEmissionsSubmit} className="space-y-4 max-w-sm">
-              <div>
-                <label htmlFor="emissions" className="block text-sm font-medium mb-1">
-                  Emissions Amount
-                </label>
-                <input
-                  id="emissions"
-                  type="number"
-                  min="1"
-                  step="1"
-                  required
-                  value={emissions}
-                  onChange={(e) => setEmissions(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter emissions amount"
-                />
+        ) : (
+          <div className="max-w-2xl mx-auto">
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-emerald-600 rounded-3xl blur-3xl opacity-30 group-hover:opacity-50 transition-opacity duration-500" />
+              <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-green-500/30 hover:border-green-400/50 transition-all duration-500">
+                <div className="overflow-hidden mb-8">
+                  <h2 className="text-4xl md:text-5xl font-black text-white animate-fade-in-up text-center">
+                    Register Your
+                    <span className="block bg-gradient-to-r from-green-400 via-emerald-400 to-green-300 bg-clip-text text-transparent">
+                      Organization
+                    </span>
+                  </h2>
+                  <p className="text-gray-300 text-center mt-4 text-lg">
+                    Join the decentralized carbon credit marketplace
+                  </p>
+                </div>
+  
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="group">
+                    <label 
+                      htmlFor="orgName" 
+                      className="block text-green-400 font-semibold mb-3 text-sm uppercase tracking-wider"
+                    >
+                      Organization Name
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="orgName"
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full p-4 bg-gray-800/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 hover:border-green-500/50"
+                        placeholder="Enter organization name"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </div>
+                  </div>
+  
+                  <div className="group">
+                    <label 
+                      htmlFor="orgDesc" 
+                      className="block text-green-400 font-semibold mb-3 text-sm uppercase tracking-wider"
+                    >
+                      Description
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        id="orgDesc"
+                        required
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        className="w-full p-4 bg-gray-800/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 hover:border-green-500/50 resize-none"
+                        rows={4}
+                        placeholder="Describe your organization's mission and goals"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </div>
+                  </div>
+  
+                  <div className="group">
+                    <label 
+                      htmlFor="profilePhoto" 
+                      className="block text-green-400 font-semibold mb-3 text-sm uppercase tracking-wider"
+                    >
+                      Profile Photo <span className="text-gray-500 normal-case">(optional)</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="profilePhoto"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="w-full p-4 bg-gray-800/50 border border-gray-600/50 rounded-xl text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-green-600 file:text-white hover:file:bg-green-500 file:cursor-pointer cursor-pointer transition-all duration-300 hover:border-green-500/50"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </div>
+                  </div>
+  
+                  <div className="pt-4">
+                    <button
+                      type="submit"
+                      disabled={isCreatingOrg}
+                      className="group relative w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl text-white font-semibold text-lg overflow-hidden hover:from-green-500 hover:to-emerald-500 transition-all duration-300 hover:shadow-2xl hover:shadow-green-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    >
+                      <span className="relative z-10">
+                        {isCreatingOrg ? "Registering..." : "Register Organization"}
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </button>
+                  </div>
+                </form>
+  
+                {createOrgError && (
+                  <div className="mt-6 p-4 bg-red-900/50 border border-red-500/30 text-red-300 rounded-xl backdrop-blur-sm">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
+                      <span className="font-medium">Error: {createOrgError.message}</span>
+                    </div>
+                  </div>
+                )}
               </div>
-              <button
-                type="submit"
-                disabled={isRecordingEmissions}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isRecordingEmissions ? "Recording..." : "Record Emissions"}
-              </button>
-            </form>
-            {emissionsError && (
-              <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                Error: {emissionsError.message}
-              </div>
-            )}
+            </div>
           </div>
-        </>
-      ) : (
-        <div className="bg-white p-6 shadow rounded">
-          <h2 className="text-xl font-bold mb-4">Register Your Organization</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="orgName" className="block text-sm font-medium mb-1">
-                Organization Name
-              </label>
-              <input
-                id="orgName"
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Enter organization name"
-              />
-            </div>
-            <div>
-              <label htmlFor="orgDesc" className="block text-sm font-medium mb-1">
-                Description
-              </label>
-              <textarea
-                id="orgDesc"
-                required
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                rows={3}
-                placeholder="Describe your organization"
-              />
-            </div>
-            <div>
-              <label htmlFor="profilePhoto" className="block text-sm font-medium mb-1">
-                Profile Photo (optional)
-              </label>
-              <input
-                id="profilePhoto"
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="w-full p-2 border border-gray-300 rounded"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isCreatingOrg}
-              className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isCreatingOrg ? "Registering..." : "Register Organization"}
-            </button>
-          </form>
-          {createOrgError && (
-            <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              Error: {createOrgError.message}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+  
+      <style jsx>{`
+        @keyframes grid-move {
+          0% { transform: translate(0, 0); }
+          100% { transform: translate(50px, 50px); }
+        }
+        
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in-up {
+          animation: fade-in-up 0.8s ease-out forwards;
+        }
+        
+        .animation-delay-200 {
+          animation-delay: 200ms;
+        }
+        
+        .animation-delay-300 {
+          animation-delay: 300ms;
+        }
+        
+        .animation-delay-500 {
+          animation-delay: 500ms;
+        }
+        
+        .animation-delay-700 {
+          animation-delay: 700ms;
+        }
+      `}</style>
+    </section>
   );
 }
