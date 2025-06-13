@@ -1,4 +1,4 @@
-import { Clock, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Clock, Check, Loader2, AlertCircle, Users, Eye, CheckCircle, XCircle } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 
@@ -138,12 +138,16 @@ export default function CreditRequests() {
     hash,
   });
 
-  // Read contract data
+  // Read contract data with proper error handling
   const { data: lendRequestsData, isError: isReadError, isLoading: isReadLoading, refetch } = useReadContract({
     address: contractAddress,
     abi: contractABI,
     functionName: 'getUserLendRequestsLenderPOV',
-    account: address,
+    query: {
+      enabled: !!address && isConnected,
+      retry: 3,
+      retryDelay: 1000,
+    },
   });
 
   // Fix hydration issues
@@ -151,9 +155,17 @@ export default function CreditRequests() {
     setIsClient(true);
   }, []);
 
-  // Process contract data
+  // Process contract data with better error handling and debugging
   useEffect(() => {
     if (!isClient) return;
+
+    console.log("Processing contract data:", {
+      isConnected,
+      address,
+      lendRequestsData,
+      isReadLoading,
+      isReadError
+    });
 
     if (!isConnected) {
       setError("Please connect your wallet");
@@ -168,38 +180,68 @@ export default function CreditRequests() {
     }
 
     if (isReadError) {
-      setError('Failed to load requests. Please try again.');
+      console.error("Contract read error:", isReadError);
+      setError('Failed to load requests. Please check your connection and try again.');
       setIsLoading(false);
       return;
     }
 
-    if (lendRequestsData) {
+    if (lendRequestsData !== undefined) {
       try {
-        // Format requests for display
-        const formattedRequests = lendRequestsData.map((req: any) => {
-          return {
-            id: `#${req.id.toString().padStart(8, '0')}`,
-            requestId: Number(req.id),
-            borrowerAddress: String(req.borrowerAddress),
-            creditsRequested: Number(req.carbonCredits),
-            zkProofStatus: req.proofData ? 'Verified' as const : 'Pending Verification' as const,
-            eligibilityScore: Number(req.eligibilityScore),
-            requestDate: new Date(Number(req.timeOfissue) * 1000).toLocaleDateString(),
-            interestRate: 5, // You might want to get this from the contract
-            status: Number(req.response) === 0 ? 'Pending' as const : 
-                   Number(req.response) === 1 ? 'Approved' as const : 'Declined' as const,
-            canRespond: Number(req.response) === 0 && 
-                       String(req.lenderAddress).toLowerCase() === address?.toLowerCase()
-          };
-        });
+        console.log("Raw lend requests data:", lendRequestsData);
+        
+        if (!Array.isArray(lendRequestsData)) {
+          console.error("Expected array but got:", typeof lendRequestsData);
+          setError("Invalid data format received from contract");
+          setIsLoading(false);
+          return;
+        }
 
-        setIncomingRequests(formattedRequests);
+        // Format requests for display with better error handling
+        const formattedRequests = lendRequestsData.map((req: any, index: number) => {
+          console.log(`Processing request ${index}:`, req);
+          
+          try {
+            const requestId = Number(req.id || 0);
+            const carbonCredits = Number(req.carbonCredits || 0);
+            const timeOfIssue = Number(req.timeOfissue || Date.now() / 1000);
+            const eligibilityScore = Number(req.eligibilityScore || 0);
+            const response = Number(req.response || 0);
+            const interestRate = Number(req.interestRate || 5);
+
+            return {
+              id: `#${requestId.toString().padStart(8, '0')}`,
+              requestId: requestId,
+              borrowerAddress: String(req.borrowerAddress || ''),
+              creditsRequested: carbonCredits,
+              zkProofStatus: (req.proofData && req.proofData !== '') ? 'Verified' as const : 'Pending Verification' as const,
+              eligibilityScore: eligibilityScore,
+              requestDate: new Date(timeOfIssue * 1000).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              }),
+              interestRate: interestRate,
+              status: response === 0 ? 'Pending' as const : 
+                     response === 1 ? 'Approved' as const : 'Declined' as const,
+              canRespond: response === 0 && 
+                         String(req.lenderAddress || '').toLowerCase() === (address || '').toLowerCase()
+            };
+          } catch (itemError) {
+            console.error(`Error processing request ${index}:`, itemError, req);
+            return null;
+          }
+        }).filter(Boolean); // Remove null entries
+
+        console.log("Formatted requests:", formattedRequests);
+        setIncomingRequests(formattedRequests as DisplayRequest[]);
         setError('');
       } catch (err) {
         console.error('Error processing requests:', err);
-        setError('Failed to process requests data.');
+        setError('Failed to process requests data. Please try refreshing the page.');
       }
     } else {
+      console.log("No data received from contract");
       setIncomingRequests([]);
     }
 
@@ -218,6 +260,8 @@ export default function CreditRequests() {
       setTxStatus(prev => ({ ...prev, [requestId.toString()]: '' }));
       setError('');
       setRespondingRequestId(requestId);
+
+      console.log("Responding to request:", { requestId, approve });
 
       // Call contract method to respond to request (1 = approve, 2 = decline)
       const responseValue = approve ? 1 : 2;
@@ -246,7 +290,9 @@ export default function CreditRequests() {
       setRespondingRequestId(null);
       
       // Refetch data to update the UI
-      refetch();
+      setTimeout(() => {
+        refetch();
+      }, 2000); // Give some time for the blockchain to update
     }
   }, [isConfirmed, respondingRequestId, refetch]);
 
@@ -262,15 +308,15 @@ export default function CreditRequests() {
   }, [isPending, isConfirming, isConfirmed, respondingRequestId]);
 
   const currentDate = new Date();
-  const formattedDate = `Today, ${currentDate.getHours()}:${currentDate.getMinutes() < 10 ? '0' + currentDate.getMinutes() : currentDate.getMinutes()}`;
+  const formattedDate = `Today, ${currentDate.getHours()}:${currentDate.getMinutes().toString().padStart(2, '0')}`;
 
   // Don't render anything until client-side hydration is complete
   if (!isClient) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-48"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-green-400 font-medium">Loading...</p>
         </div>
       </div>
     );
@@ -278,10 +324,17 @@ export default function CreditRequests() {
 
   if (!isConnected) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="text-center py-20">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Connect Your Wallet</h2>
-          <p className="text-gray-600">Please connect your wallet to view credit requests.</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center px-6">
+        <div className="relative group max-w-md w-full">
+          <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-emerald-600 rounded-3xl blur-3xl opacity-30" />
+          <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl p-8 border border-green-500/30 text-center">
+            <Users className="w-16 h-16 mx-auto mb-4 text-green-400" />
+            <h2 className="text-2xl font-bold text-white mb-4">Wallet Connection Required</h2>
+            <p className="text-gray-300 mb-6">Please connect your wallet to view credit requests.</p>
+            <div className="text-sm text-green-400 bg-green-500/10 px-4 py-2 rounded-lg border border-green-500/30">
+              Connect your wallet to continue
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -289,139 +342,249 @@ export default function CreditRequests() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="animate-spin h-12 w-12 text-emerald-500" />
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="animate-spin h-16 w-16 text-green-400 mx-auto mb-4" />
+          <p className="text-green-400 font-medium">Loading credit requests...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Error message */}
-      {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
-          <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 mr-2" />
-            <span>{error}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Incoming Requests Section */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Incoming Credit Requests</h1>
-        <div className="flex items-center text-gray-500">
-          <Clock className="w-5 h-5 mr-2" />
-          <span>Last updated: {formattedDate}</span>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+      {/* Background Effects */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-green-900/20 via-transparent to-transparent" />
+      
+      {/* Animated Grid Background */}
+      <div className="absolute inset-0 opacity-10">
+        <div 
+          className="absolute inset-0" 
+          style={{
+            backgroundImage: `linear-gradient(rgba(34, 197, 94, 0.1) 1px, transparent 1px),
+                             linear-gradient(90deg, rgba(34, 197, 94, 0.1) 1px, transparent 1px)`,
+            backgroundSize: '50px 50px',
+            animation: 'grid-move 20s linear infinite'
+          }} 
+        />
       </div>
 
-      {/* Incoming Requests */}
-      <div className="space-y-6 mb-10">
-        {incomingRequests.length > 0 ? (
-          incomingRequests.map((request) => (
-            <div key={request.id} className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="bg-blue-100 p-3 rounded-lg">
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="24" height="24" rx="4" fill="#E5EDFF" />
-                      <path d="M8 9H16M8 13H14M8 17H12" stroke="#0052CC" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-lg">{request.borrowerAddress}</h2>
-                    <p className="text-gray-500 text-sm">Request ID: {request.id}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {request.canRespond && (
-                    <>
-                      <button
-                        onClick={() => handleRequestResponse(request.requestId, true)}
-                        disabled={isResponding[request.requestId.toString()] || isPending || isConfirming}
-                        className={`bg-emerald-500 text-white px-4 py-2 rounded-md hover:bg-emerald-600 transition flex items-center ${
-                          isResponding[request.requestId.toString()] || isPending || isConfirming ? 'opacity-50' : ''
-                        }`}
-                      >
-                        {(isResponding[request.requestId.toString()] || isPending || isConfirming) && respondingRequestId === request.requestId ? (
-                          <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                        ) : null}
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleRequestResponse(request.requestId, false)}
-                        disabled={isResponding[request.requestId.toString()] || isPending || isConfirming}
-                        className={`border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition flex items-center ${
-                          isResponding[request.requestId.toString()] || isPending || isConfirming ? 'opacity-50' : ''
-                        }`}
-                      >
-                        Decline
-                      </button>
-                    </>
-                  )}
-                  {!request.canRespond && (
-                    <span className={`px-3 py-1 rounded-md text-sm ${
-                      request.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                      request.status === 'Declined' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {request.status}
-                    </span>
-                  )}
-                </div>
-              </div>
+      <main className="relative z-10 p-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-black text-white mb-2">
+                Credit
+                <span className="block bg-gradient-to-r from-green-400 via-emerald-400 to-green-300 bg-clip-text text-transparent">
+                  Requests
+                </span>
+              </h1>
+              <p className="text-gray-300 text-lg">Manage incoming loan requests</p>
+            </div>
+            <div className="flex items-center text-gray-400 bg-gray-800/50 backdrop-blur-sm rounded-xl px-4 py-2 border border-green-500/30">
+              <Clock className="w-5 h-5 mr-2 text-green-400" />
+              <span>Last updated: {formattedDate}</span>
+            </div>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-500 text-sm mb-1">Credits Requested</p>
-                  <p className="font-semibold text-lg">{request.creditsRequested} CCU</p>
+                  <p className="text-gray-400 text-sm">Total Requests</p>
+                  <p className="text-white text-2xl font-bold">{incomingRequests.length}</p>
                 </div>
+                <Eye className="w-8 h-8 text-blue-400" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-500 text-sm mb-1">ZK Proof Status</p>
-                  <p className={`font-semibold text-lg ${
-                    request.zkProofStatus === 'Verified' ? 'text-emerald-500' : 'text-amber-500'
-                  }`}>
-                    {request.zkProofStatus}
+                  <p className="text-gray-400 text-sm">Pending</p>
+                  <p className="text-white text-2xl font-bold">
+                    {incomingRequests.filter(r => r.status === 'Pending').length}
                   </p>
                 </div>
-                <div>
-                  <p className="text-gray-500 text-sm mb-1">Eligibility Score</p>
-                  <p className="font-semibold text-lg">{request.eligibilityScore}/100</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-sm mb-1">Interest Rate</p>
-                  <p className="font-semibold text-lg">{request.interestRate}%</p>
-                </div>
+                <Clock className="w-8 h-8 text-yellow-400" />
               </div>
-
-              {/* Transaction status feedback */}
-              {txStatus[request.requestId.toString()] === 'success' && (
-                <div className="mt-4 bg-green-50 text-green-700 p-2 rounded text-sm flex items-center">
-                  <Check className="h-4 w-4 mr-2" />
-                  Transaction successful!
-                </div>
-              )}
-              {txStatus[request.requestId.toString()] === 'error' && (
-                <div className="mt-4 bg-red-50 text-red-700 p-2 rounded text-sm flex items-center">
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  Transaction failed. Please try again.
-                </div>
-              )}
-              {(isPending || isConfirming) && respondingRequestId === request.requestId && (
-                <div className="mt-4 bg-blue-50 text-blue-700 p-2 rounded text-sm flex items-center">
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                  {isPending ? 'Confirming transaction...' : 'Waiting for confirmation...'}
-                </div>
-              )}
             </div>
-          ))
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <p className="text-gray-500">No incoming credit requests found</p>
+            <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Approved</p>
+                  <p className="text-white text-2xl font-bold">
+                    {incomingRequests.filter(r => r.status === 'Approved').length}
+                  </p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="bg-red-900/50 border border-red-500/30 text-red-300 p-4 mb-6 rounded-xl backdrop-blur-sm">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-red-400" />
+              <span>{error}</span>
+              <button 
+                onClick={() => {
+                  setError('');
+                  refetch();
+                }}
+                className="ml-auto text-red-400 hover:text-red-300 underline"
+              >
+                Retry
+              </button>
+            </div>
           </div>
         )}
-      </div>
+
+        {/* Debug Info (remove in production) */}
+        <div className="mb-6 bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
+          <p className="text-gray-400 text-sm mb-2">Debug Info:</p>
+          <p className="text-gray-300 text-xs font-mono">
+            Connected: {isConnected.toString()} | 
+            Address: {address || 'None'} | 
+            Data Length: {lendRequestsData ? (Array.isArray(lendRequestsData) ? lendRequestsData.length : 'Not array') : 'No data'} |
+            Loading: {isReadLoading.toString()} |
+            Error: {isReadError ? 'Yes' : 'No'}
+          </p>
+        </div>
+
+        {/* Incoming Requests */}
+        <div className="space-y-6">
+          {incomingRequests.length > 0 ? (
+            incomingRequests.map((request) => (
+              <div key={request.id} className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-r from-green-600/10 to-emerald-600/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 hover:border-green-500/50 transition-all duration-300">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="font-bold text-white text-lg">
+                          {request.borrowerAddress.slice(0, 6)}...{request.borrowerAddress.slice(-4)}
+                        </h2>
+                        <p className="text-gray-400 text-sm">Request ID: {request.id}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {request.canRespond && (
+                        <>
+                          <button
+                            onClick={() => handleRequestResponse(request.requestId, true)}
+                            disabled={isResponding[request.requestId.toString()] || isPending || isConfirming}
+                            className={`bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white px-6 py-2 rounded-xl font-semibold transition-all duration-300 flex items-center ${
+                              isResponding[request.requestId.toString()] || isPending || isConfirming ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-green-500/30'
+                            }`}
+                          >
+                            {(isResponding[request.requestId.toString()] || isPending || isConfirming) && respondingRequestId === request.requestId ? (
+                              <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                            )}
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRequestResponse(request.requestId, false)}
+                            disabled={isResponding[request.requestId.toString()] || isPending || isConfirming}
+                            className={`bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-xl font-semibold transition-all duration-300 flex items-center ${
+                              isResponding[request.requestId.toString()] || isPending || isConfirming ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Decline
+                          </button>
+                        </>
+                      )}
+                      {!request.canRespond && (
+                        <span className={`px-4 py-2 rounded-xl text-sm font-semibold ${
+                          request.status === 'Approved' ? 'bg-green-900/50 text-green-300 border border-green-500/30' :
+                          request.status === 'Declined' ? 'bg-red-900/50 text-red-300 border border-red-500/30' :
+                          'bg-gray-800/50 text-gray-300 border border-gray-600/30'
+                        }`}>
+                          {request.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/30">
+                      <p className="text-gray-400 text-sm mb-2">Credits Requested</p>
+                      <p className="font-bold text-white text-xl">{request.creditsRequested} CCU</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/30">
+                      <p className="text-gray-400 text-sm mb-2">ZK Proof Status</p>
+                      <p className={`font-bold text-xl ${
+                        request.zkProofStatus === 'Verified' ? 'text-green-400' : 'text-amber-400'
+                      }`}>
+                        {request.zkProofStatus}
+                      </p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/30">
+                      <p className="text-gray-400 text-sm mb-2">Eligibility Score</p>
+                      <p className="font-bold text-white text-xl">{request.eligibilityScore}/100</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/30">
+                      <p className="text-gray-400 text-sm mb-2">Interest Rate</p>
+                      <p className="font-bold text-white text-xl">{request.interestRate}%</p>
+                    </div>
+                  </div>
+
+                  {/* Transaction status feedback */}
+                  {txStatus[request.requestId.toString()] === 'success' && (
+                    <div className="mt-4 bg-green-900/50 text-green-300 p-3 rounded-xl text-sm flex items-center border border-green-500/30">
+                      <Check className="h-4 w-4 mr-2" />
+                      Transaction successful! The request has been processed.
+                    </div>
+                  )}
+                  {txStatus[request.requestId.toString()] === 'error' && (
+                    <div className="mt-4 bg-red-900/50 text-red-300 p-3 rounded-xl text-sm flex items-center border border-red-500/30">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      Transaction failed. Please try again.
+                    </div>
+                  )}
+                  {(isPending || isConfirming) && respondingRequestId === request.requestId && (
+                    <div className="mt-4 bg-blue-900/50 text-blue-300 p-3 rounded-xl text-sm flex items-center border border-blue-500/30">
+                      <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                      {isPending ? 'Confirming transaction...' : 'Waiting for blockchain confirmation...'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-gray-600/10 to-gray-700/10 rounded-2xl blur-xl opacity-50" />
+              <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-12 border border-gray-700/50 text-center">
+                <Users className="w-16 h-16 mx-auto mb-4 text-gray-500" />
+                <h3 className="text-xl font-bold text-gray-300 mb-2">No Credit Requests</h3>
+                <p className="text-gray-400">No incoming credit requests found at the moment.</p>
+                <button 
+                  onClick={() => refetch()}
+                  className="mt-4 bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-xl font-semibold transition-colors duration-300"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      <style jsx>{`
+        @keyframes grid-move {
+          0% { transform: translate(0, 0); }
+          100% { transform: translate(50px, 50px); }
+        }
+      `}</style>
     </div>
   );
 }
