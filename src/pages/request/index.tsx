@@ -29,7 +29,7 @@ interface DisplayRequest {
   canRespond: boolean;
 }
 
-const contractAddress = '0x431Fb2E732D863934d49ae1e2799E802a9a18e2b' as `0x${string}`;
+const contractAddress = '0x01ad9Ea4DA34c5386135951a50823eCaC3ec3Ec5' as `0x${string}`;
 
 const contractABI = [
   {

@@ -21,7 +21,7 @@ interface VotedClaims {
   [claimId: number]: boolean;
 }
 
-const contractAddress = "0x057cc58159F13833844b7651F8070341FCDba322" as `0x${string}`;
+const contractAddress = "0x01ad9Ea4DA34c5386135951a50823eCaC3ec3Ec5" as `0x${string}`;
 
 const abi = [
   {

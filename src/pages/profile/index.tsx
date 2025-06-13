@@ -4,7 +4,7 @@ import { useUser, useWallet } from "@civic/auth-web3/react";
 import { useAccount, useWriteContract, useReadContract, useBalance } from "wagmi";
 import { parseAbi, formatEther } from 'viem';
 
-const CONTRACT_ADDRESS = "0x057cc58159F13833844b7651F8070341FCDba322" as const;
+const CONTRACT_ADDRESS = "0x01ad9Ea4DA34c5386135951a50823eCaC3ec3Ec5" as const;
 
 // Use parseAbi for better type safety
 const CONTRACT_ABI = parseAbi([

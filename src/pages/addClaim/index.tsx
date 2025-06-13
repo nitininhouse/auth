@@ -2,7 +2,7 @@ import React, { useState, useEffect, ChangeEvent, DragEvent, FormEvent } from 'r
 import { useAccount, useWriteContract } from "wagmi";
 import { parseAbi } from 'viem';
 
-const CONTRACT_ADDRESS = "0x057cc58159F13833844b7651F8070341FCDba322" as const;
+const CONTRACT_ADDRESS = "0x01ad9Ea4DA34c5386135951a50823eCaC3ec3Ec5" as const;
 
 // Contract ABI - Updated to match your contract
 const CONTRACT_ABI = parseAbi([
