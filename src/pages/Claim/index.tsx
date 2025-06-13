@@ -408,191 +408,213 @@ const AllClaims = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-green-900/20 via-transparent to-transparent" />
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12">
+        {/* Header Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-5xl font-bold text-white mb-6">
             🌱 Carbon Credit Claims
           </h1>
-          <p className="text-gray-600">Found {claims.length} claim{claims.length !== 1 ? 's' : ''}</p>
+          <p className="text-xl text-gray-400 mb-8">
+            Found {claims.length} claim{claims.length !== 1 ? 's' : ''}
+          </p>
+          <div className="w-24 h-1 bg-gradient-to-r from-green-400 to-emerald-400 mx-auto rounded-full" />
         </div>
-
-        <div className="space-y-6">
-          {claims.map((claim) => {
+  
+        {/* Claims Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {claims.map((claim, index) => {
             const isOrg = address?.toLowerCase() === claim.org;
             const alreadyVoted = votedClaims[claim.id];
             const status = ["Active", "Approved", "Rejected"][claim.status] as "Active" | "Approved" | "Rejected";
             const statusColors: { [key in "Active" | "Approved" | "Rejected"]: string } = {
-              "Active": "bg-blue-100 text-blue-800 border-blue-200",
-              "Approved": "bg-green-100 text-green-800 border-green-200",
-              "Rejected": "bg-red-100 text-red-800 border-red-200"
+              "Active": "bg-blue-500/20 text-blue-300 border-blue-500/30",
+              "Approved": "bg-green-500/20 text-green-300 border-green-500/30",
+              "Rejected": "bg-red-500/20 text-red-300 border-red-500/30"
             };
             const yesPercentage = claim.total > 0 ? (claim.yes / claim.total) * 100 : 0;
             const isVotingEnded = currentTime > claim.votingEnd;
             const isCurrentlyVoting = votingClaimId === claim.id && (isPending || isConfirming);
-
+  
             return (
-              <div key={claim.id} className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h2 className="text-xl font-semibold text-gray-800">
+              <div 
+                key={claim.id} 
+                className="group relative bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 hover:border-green-500/50 transition-all duration-500 hover:shadow-2xl hover:shadow-green-500/10 overflow-hidden"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                {/* Glow Effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                <div className="relative z-10 p-8">
+                  {/* Header */}
+                  <div className="flex justify-between items-start mb-6">
+                    <h2 className="text-2xl font-bold text-white">
                       Claim #{claim.id}
                     </h2>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium border ${statusColors[status]}`}>
+                    <span className={`px-4 py-2 rounded-full text-sm font-medium border backdrop-blur-sm ${statusColors[status]}`}>
                       {status}
                     </span>
                   </div>
                   
-                  <div className="mb-6">
-                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                      <p className="text-gray-700 leading-relaxed">
+                  {/* Description */}
+                  <div className="mb-8">
+                    <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-700/30">
+                      <p className="text-gray-300 leading-relaxed text-lg">
                         {claim.description}
                       </p>
                     </div>
+                  </div>
+                  
+                  {/* Info Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                    <div className="flex items-center p-4 bg-gray-900/30 rounded-xl border border-gray-700/30">
+                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center mr-4 shadow-lg">
+                        <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-white text-sm">Organization</div>
+                        <div className="text-xs text-gray-400 break-all font-mono">{claim.org}</div>
+                      </div>
+                    </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                          <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-800">Organization</div>
-                          <div className="text-xs text-gray-500 break-all">{claim.org}</div>
-                        </div>
+                    <div className="flex items-center p-4 bg-gray-900/30 rounded-xl border border-gray-700/30">
+                      <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center mr-4 shadow-lg">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
                       </div>
-                      
-                      <div className="flex items-center text-sm text-gray-600">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-800">Carbon Credits</div>
-                          <div className="text-xs text-gray-500">{claim.credits}</div>
-                        </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-white text-sm">Carbon Credits</div>
+                        <div className="text-xs text-gray-400">{claim.credits}</div>
                       </div>
-                      
-                      <div className="flex items-center text-sm text-gray-600">
-                        <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
-                          <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-800">
-                            Voting {isVotingEnded ? "Ended" : "Ends"}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {new Date(claim.votingEnd * 1000).toLocaleString()}
-                          </div>
-                        </div>
+                    </div>
+                    
+                    <div className="flex items-center p-4 bg-gray-900/30 rounded-xl border border-gray-700/30">
+                      <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full flex items-center justify-center mr-4 shadow-lg">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                       </div>
-                      
-                      <div className="flex items-center text-sm text-gray-600">
-                        <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
-                          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
+                      <div className="flex-1">
+                        <div className="font-semibold text-white text-sm">
+                          Voting {isVotingEnded ? "Ended" : "Ends"}
                         </div>
-                        <div>
-                          <div className="font-medium text-gray-800">Location</div>
-                          <div className="text-xs text-gray-500">({claim.lat.toFixed(6)}, {claim.lng.toFixed(6)})</div>
+                        <div className="text-xs text-gray-400">
+                          {new Date(claim.votingEnd * 1000).toLocaleString()}
                         </div>
                       </div>
                     </div>
                     
-                    {isVotingEnded && (
-                      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                        <div className="flex justify-between items-center mb-3">
-                          <div className="flex items-center space-x-4">
-                            <div className="flex items-center">
-                              <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                              <span className="text-sm font-medium text-gray-700">Yes: {claim.yes}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <span className="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
-                              <span className="text-sm font-medium text-gray-700">No: {claim.no}</span>
-                            </div>
-                            <span className="text-sm text-gray-500">Total: {claim.total}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${yesPercentage}%` }}
-                          ></div>
-                        </div>
+                    <div className="flex items-center p-4 bg-gray-900/30 rounded-xl border border-gray-700/30">
+                      <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center mr-4 shadow-lg">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
                       </div>
-                    )}
-                    
-                    {!isVotingEnded && !isOrg ? (
-                      <div className="flex space-x-3 mt-6">
-                        <button
-                          onClick={() => handleVote(claim.id, true)}
-                          disabled={alreadyVoted || isCurrentlyVoting}
-                          className={`flex-1 px-4 py-2 rounded-md font-medium text-white ${
-                            alreadyVoted || isCurrentlyVoting
-                              ? "bg-gray-300 cursor-not-allowed" 
-                              : "bg-green-500 hover:bg-green-600 shadow-sm hover:shadow transition-all"
-                          }`}
-                        >
-                          <span className="flex items-center justify-center">
-                            {isCurrentlyVoting ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            ) : (
-                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                            Vote Yes
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => handleVote(claim.id, false)}
-                          disabled={alreadyVoted || isCurrentlyVoting}
-                          className={`flex-1 px-4 py-2 rounded-md font-medium text-white ${
-                            alreadyVoted || isCurrentlyVoting
-                              ? "bg-gray-300 cursor-not-allowed" 
-                              : "bg-red-500 hover:bg-red-600 shadow-sm hover:shadow transition-all"
-                          }`}
-                        >
-                          <span className="flex items-center justify-center">
-                            {isCurrentlyVoting ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            ) : (
-                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            )}
-                            Vote No
-                          </span>
-                        </button>
+                      <div className="flex-1">
+                        <div className="font-semibold text-white text-sm">Location</div>
+                        <div className="text-xs text-gray-400 font-mono">({claim.lat.toFixed(6)}, {claim.lng.toFixed(6)})</div>
                       </div>
-                    ) : isOrg ? (
-                      <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="flex items-center text-blue-700">
-                          <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                          You created this claim. Voting disabled.
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-6 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex items-center text-gray-600">
-                          <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                          </svg>
-                          Voting period has ended. Results are displayed above.
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
+                  
+                  {/* Voting Results */}
+                  {isVotingEnded && (
+                    <div className="mb-8 p-6 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center space-x-6">
+                          <div className="flex items-center">
+                            <span className="w-4 h-4 bg-gradient-to-r from-green-400 to-green-500 rounded-full mr-3 shadow-lg shadow-green-500/30"></span>
+                            <span className="text-sm font-semibold text-green-300">Yes: {claim.yes}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="w-4 h-4 bg-gradient-to-r from-red-400 to-red-500 rounded-full mr-3 shadow-lg shadow-red-500/30"></span>
+                            <span className="text-sm font-semibold text-red-300">No: {claim.no}</span>
+                          </div>
+                          <span className="text-sm text-gray-400">Total: {claim.total}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-1000 ease-out shadow-lg shadow-green-500/50"
+                          style={{ width: `${yesPercentage}%` }}
+                        ></div>
+                      </div>
+                      <div className="mt-2 text-right text-sm text-gray-400">
+                        {yesPercentage.toFixed(1)}% approval
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Action Buttons */}
+                  {!isVotingEnded && !isOrg ? (
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={() => handleVote(claim.id, true)}
+                        disabled={alreadyVoted || isCurrentlyVoting}
+                        className={`flex-1 px-6 py-4 rounded-xl font-semibold text-white transition-all duration-300 ${
+                          alreadyVoted || isCurrentlyVoting
+                            ? "bg-gray-600/50 cursor-not-allowed border border-gray-600/30" 
+                            : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 shadow-lg hover:shadow-green-500/30 border border-green-500/30 hover:border-green-400/50 transform hover:scale-105"
+                        }`}
+                      >
+                        <span className="flex items-center justify-center">
+                          {isCurrentlyVoting ? (
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                          ) : (
+                            <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          Vote Yes
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => handleVote(claim.id, false)}
+                        disabled={alreadyVoted || isCurrentlyVoting}
+                        className={`flex-1 px-6 py-4 rounded-xl font-semibold text-white transition-all duration-300 ${
+                          alreadyVoted || isCurrentlyVoting
+                            ? "bg-gray-600/50 cursor-not-allowed border border-gray-600/30" 
+                            : "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 shadow-lg hover:shadow-red-500/30 border border-red-500/30 hover:border-red-400/50 transform hover:scale-105"
+                        }`}
+                      >
+                        <span className="flex items-center justify-center">
+                          {isCurrentlyVoting ? (
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                          ) : (
+                            <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                          Vote No
+                        </span>
+                      </button>
+                    </div>
+                  ) : isOrg ? (
+                    <div className="p-4 bg-blue-500/10 rounded-xl border border-blue-500/30 backdrop-blur-sm">
+                      <div className="flex items-center text-blue-300">
+                        <svg className="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-semibold">You created this claim. Voting disabled.</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-gray-700/30 rounded-xl border border-gray-600/30 backdrop-blur-sm">
+                      <div className="flex items-center text-gray-400">
+                        <svg className="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-semibold">Voting period has ended. Results are displayed above.</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
