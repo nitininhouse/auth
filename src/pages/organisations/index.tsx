@@ -30,8 +30,7 @@ interface MyOrganizationDetail {
 
 const CONTRACT_ADDRESS = '0x01ad9Ea4DA34c5386135951a50823eCaC3ec3Ec5' as const;
 
-// Contract ABI using parseAbi for better type safety
-// Update your CONTRACT_ABI in the frontend to match the actual return type
+
 
 const CONTRACT_ABI = parseAbi([
   
@@ -235,18 +234,44 @@ useEffect(() => {
         alert("Wallet not connected");
         return;
       }
-
-      // Convert proof components to correct format
-      const a = [BigInt(proof.pi_a[0]), BigInt(proof.pi_a[1])];
+  
+      console.log("Original proof object:", proof);
+      console.log("Original publicSignals:", publicSignals);
+  
+      // Helper function to safely convert to BigInt
+      const safeBigInt = (value: any) => {
+        if (typeof value === 'bigint') return value;
+        if (typeof value === 'number') return BigInt(Math.floor(value));
+        if (typeof value === 'string') {
+          // Remove any scientific notation or decimal points
+          const cleanValue = value.includes('e') ? 
+            Math.floor(parseFloat(value)).toString() : 
+            value.split('.')[0];
+          return BigInt(cleanValue);
+        }
+        throw new Error(`Cannot convert ${typeof value} to BigInt: ${value}`);
+      };
+  
+      // Convert proof components to correct format with error handling
+      const a = [safeBigInt(proof.pi_a[0]), safeBigInt(proof.pi_a[1])];
       const b = [
-        [BigInt(proof.pi_b[0][0]), BigInt(proof.pi_b[0][1])],
-        [BigInt(proof.pi_b[1][0]), BigInt(proof.pi_b[1][1])]
+        [safeBigInt(proof.pi_b[0][0]), safeBigInt(proof.pi_b[0][1])],
+        [safeBigInt(proof.pi_b[1][0]), safeBigInt(proof.pi_b[1][1])]
       ];
-      const c = [BigInt(proof.pi_c[0]), BigInt(proof.pi_c[1])];
-
-      // Convert public signals to BigInts
-      const input = (publicSignals as string[]).map((signal: string) => BigInt(signal));
-
+      const c = [safeBigInt(proof.pi_c[0]), safeBigInt(proof.pi_c[1])];
+  
+      // Convert public signals to BigInts with error handling
+      const input = (publicSignals as string[]).map((signal: string) => {
+        console.log("Converting signal:", signal, typeof signal);
+        return safeBigInt(signal);
+      });
+  
+      console.log("Converted values:");
+      console.log("a:", a);
+      console.log("b:", b);
+      console.log("c:", c);
+      console.log("input:", input);
+  
       console.log("Sending data to contract:", {
         lenderAddress,
         carbonCredits: parseUnits(borrowRequestAmount, 0),
@@ -256,7 +281,7 @@ useEffect(() => {
         c,
         input
       });
-
+  
       await writeContract({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
@@ -271,16 +296,24 @@ useEffect(() => {
           input
         ],
       });
-
+  
       alert("Lend request created successfully!");
       console.log("Transaction submitted");
     } catch (error: any) {
       console.error("Error creating lend request:", error);
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        proof: proof,
+        publicSignals: publicSignals
+      });
       
       if (error?.message?.includes('insufficient funds')) {
         alert("Insufficient funds: Your wallet doesn't have enough ETH to pay for gas fees.");
       } else if (error?.message?.includes('user rejected')) {
         alert("Transaction was rejected by user.");
+      } else if (error?.message?.includes('BigInt')) {
+        alert(`BigInt conversion error: ${error.message}. Check console for details.`);
       } else {
         alert(`Error creating lend request: ${error?.message || 'Unknown error'}`);
       }
@@ -290,7 +323,6 @@ useEffect(() => {
       setSelectedLender(null);
     }
   };
-
   const handleBorrowClick = (org: any) => {
     setSelectedLender(org);
     setShowBorrowModal(true);
