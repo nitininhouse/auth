@@ -146,33 +146,8 @@ template CarbonCreditEligibility() {
 ![Screenshot from 2025-06-14 04-56-06](https://github.com/user-attachments/assets/2c1d3678-5321-4a93-bc8c-689e2b15faab)
 ![Screenshot from 2025-06-14 04-56-13](https://github.com/user-attachments/assets/74183269-349e-49bc-9fba-3f8c0a0f9d00)
 
-## Architecture Overview
 
-```mermaid
-graph TB
-    A[User - Civic Auth] --> B[Frontend - Next.js]
-    B --> C[Smart Contracts - Sepolia]
-    C --> D[Verifier Contract]
-    C --> E[ERC20 Token]
-    C --> F[Marketplace Contract]
-    
-    G[ZK Circuits - Circom] --> H[Proof Generation]
-    H --> D
-    
-    I[IPFS Storage] --> B
-    
-    subgraph "Privacy Layer"
-        D
-        G
-        H
-    end
-    
-    subgraph "Identity Layer"
-        A
-        J[Civic Gateway]
-        A --> J
-    end
-```
+
 
 ---
 
@@ -222,48 +197,8 @@ Organizations can claim credits by:
 ### Prerequisites
 - Node.js 18+
 - Git
-- Civic Auth API Key
+- Civic Auth client key
 
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/your-username/zk-carbon
-cd zk-carbon
-
-# Install dependencies
-npm install
-
-# Install Circom and related tools
-npm install -g circom snarkjs
-
-# Set up environment variables
-cp .env.example .env.local
-```
-
-### Environment Configuration
-
-```bash
-# .env.local
-NEXT_PUBLIC_CIVIC_GATEWAY_TOKEN=your_civic_gateway_token
-NEXT_PUBLIC_SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/your_key
-NEXT_PUBLIC_MARKETPLACE_ADDRESS=0x01ad9Ea4DA34c5386135951a50823eCaC3ec3Ec5
-NEXT_PUBLIC_TOKEN_ADDRESS=0x58836b1F5F8D495199791E5396EA066df7661040
-NEXT_PUBLIC_VERIFIER_ADDRESS=0xA8A8BfFf718eB5496C9d6c44b8529d0064fc2742
-```
-
-### Running the Application
-
-```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run tests
-npm test
-```
 
 ---
 
@@ -355,31 +290,7 @@ Project Submission → ZK-Eligibility Proof → Community Voting → Token Minti
 Loan Request → ZK-Creditworthiness Proof → Lender Approval → Token Transfer
 ```
 
----
-
-##  Testing
-
-### Unit Tests
-```bash
-# Smart contract tests
-cd contracts
-forge test
-
-# Frontend tests
-npm run test:frontend
-
-# ZK circuit tests
-npm run test:circuits
-```
-
-### Integration Testing
-```bash
-# Full flow testing
-npm run test:integration
-
-# Civic Auth testing
-npm run test:civic-auth
-```
+--
 
 ---
 
