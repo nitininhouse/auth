@@ -1,11 +1,39 @@
 # ZK Civic Carbon: Decentralized Carbon Credit Marketplace
 ## Powered by Civic Auth & Zero-Knowledge Proofs
-
-**website deployed at :- https://auth-nine-murex.vercel.app/organisations** 
-
 ![ZK-Carbon Banner](https://img.shields.io/badge/ZK--Carbon-Live%20on%20Sepolia-green?style=for-the-badge&logo=ethereum)
 ![Civic Auth](https://img.shields.io/badge/Civic-Auth%20Integrated-blue?style=for-the-badge)
 ![Zero Knowledge](https://img.shields.io/badge/ZK--Proofs-Privacy%20First-purple?style=for-the-badge)
+
+**website deployed at :- https://auth-nine-murex.vercel.app/organisations** 
+
+```mermaid
+graph TB
+    A[User - Civic Auth] --> B[Frontend - Next.js]
+    B --> C[Smart Contracts - Sepolia]
+    C --> D[Verifier Contract]
+    C --> E[ERC20 Token]
+    C --> F[Marketplace Contract]
+    
+    G[ZK Circuits - Circom] --> H[Proof Generation]
+    H --> D
+    
+    I[IPFS Storage] --> B
+    
+    subgraph "Privacy Layer"
+        D
+        G
+        H
+    end
+    
+    subgraph "Identity Layer"
+        A
+        J[Civic Gateway]
+        A --> J
+    end
+```
+
+
+
 
 ---
 <img width="741" alt="image" src="https://github.com/user-attachments/assets/a97d4cb2-6113-4f37-b125-2c10fe13f5c5" />
@@ -113,6 +141,10 @@ template CarbonCreditEligibility() {
 ```
 
 ---
+![Screenshot from 2025-06-14 04-55-55](https://github.com/user-attachments/assets/bdf69569-a1e4-49da-8801-0e989814f52c)
+
+![Screenshot from 2025-06-14 04-56-06](https://github.com/user-attachments/assets/2c1d3678-5321-4a93-bc8c-689e2b15faab)
+![Screenshot from 2025-06-14 04-56-13](https://github.com/user-attachments/assets/74183269-349e-49bc-9fba-3f8c0a0f9d00)
 
 ## Architecture Overview
 
